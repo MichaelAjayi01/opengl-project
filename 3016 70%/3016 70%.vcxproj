@@ -71,11 +71,11 @@
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-    <IncludePath>$(ProjectDir)opengl\include;$(ProjectDir)opengl\include\assimp;$(IncludePath)</IncludePath>
+    <IncludePath>$(ProjectDir)opengl\include;$(ProjectDir)opengl\include\assimp;$(ProjectDir)opengl\include\irrKlang;$(IncludePath)</IncludePath>
     <LibraryPath>$(ProjectDir)opengl\lib;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
-    <IncludePath>$(ProjectDir)opengl\include;$(ProjectDir)opengl\include\assimp;$(IncludePath)</IncludePath>
+    <IncludePath>$(ProjectDir)opengl\include;$(ProjectDir)opengl\include\assimp;$(ProjectDir)opengl\include\irrKlang;$(IncludePath)</IncludePath>
     <LibraryPath>$(ProjectDir)opengl\lib;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
@@ -117,7 +117,7 @@
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>OpenGL32.Lib;GlU32.Lib;glfw3.lib;glew32s.lib;glew32.lib;assimp-vc143-mt.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>OpenGL32.Lib;GlU32.Lib;glfw3.lib;glew32s.lib;glew32.lib;assimp-vc143-mt.lib;irrKlang.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -135,7 +135,7 @@
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>OpenGL32.Lib;GlU32.Lib;glfw3.lib;glew32s.lib;glew32.lib;assimp-vc143-mt.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>OpenGL32.Lib;GlU32.Lib;glfw3.lib;glew32s.lib;glew32.lib;assimp-vc143-mt.lib;irrKlang.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
