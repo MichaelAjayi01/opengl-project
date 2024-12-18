@@ -16,6 +16,16 @@ extern "C" {
 
 	//----------------------------------------------------------------------------
 
+	// Function to check OpenGL version
+	static void CheckOpenGLVersion()
+	{
+		// Get OpenGL version string
+		const char* version = (const char*)glGetString(GL_VERSION);
+		std::cout << "OpenGL version: " << version << std::endl;
+	}
+
+	//----------------------------------------------------------------------------
+
 	static const GLchar*
 		ReadShader(const char* filename)
 	{
@@ -69,6 +79,9 @@ extern "C" {
 	GLuint
 		LoadShaders(ShaderInfo* shaders)
 	{
+		// Check OpenGL version first
+		CheckOpenGLVersion();
+
 		if (shaders == NULL) {
 #ifdef _DEBUG
 			std::cerr << "No shaders provided to LoadShaders." << std::endl;
