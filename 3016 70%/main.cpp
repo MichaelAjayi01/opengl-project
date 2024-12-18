@@ -73,8 +73,9 @@ int main() {
         return -1;
     }
 
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
+    // Set OpenGL version to 4.6
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 6);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
     GLFWwindow* window = glfwCreateWindow(800, 600, "Procedural Terrain", nullptr, nullptr);
@@ -92,6 +93,9 @@ int main() {
     }
 
     glEnable(GL_DEPTH_TEST);
+
+    // Print OpenGL version to verify
+    std::cout << "OpenGL version: " << glGetString(GL_VERSION) << std::endl;
 
     // Set up FastNoise
     FastNoiseLite noise;
