@@ -73,9 +73,8 @@ int main() {
         return -1;
     }
 
-    // Request OpenGL 4.6 core profile
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 6);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
     GLFWwindow* window = glfwCreateWindow(800, 600, "Procedural Terrain", nullptr, nullptr);
@@ -105,6 +104,9 @@ int main() {
     std::vector<Vertex> vertices;
     std::vector<unsigned int> indices;
     generateTerrain(gridSize, scale, noise, vertices, indices);
+
+    // Debugging terrain generation
+    std::cout << "Generated terrain with " << vertices.size() << " vertices and " << indices.size() << " indices." << std::endl;
 
     // Create VAO, VBO, and EBO
     GLuint VAO, VBO, EBO;
@@ -143,14 +145,19 @@ int main() {
     }
     glUseProgram(shaderProgram);
 
-    // Set up camera parameters (view and projection matrices)
+    // Camera and projection setup
     glm::mat4 model = glm::mat4(1.0f);
-    glm::mat4 view = glm::lookAt(glm::vec3(50.0f, 50.0f, 50.0f), glm::vec3(50.0f, 0.0f, 50.0f), glm::vec3(0.0f, 1.0f, 0.0f));
-    glm::mat4 projection = glm::perspective(glm::radians(45.0f), (float)800 / (float)600, 0.1f, 100.0f);
+    glm::mat4 view = glm::lookAt(glm::vec3(50.0f, 50.0f, 150.0f), glm::vec3(50.0f, 0.0f, 50.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+    glm::mat4 projection = glm::perspective(glm::radians(45.0f), 800.0f / 600.0f, 0.1f, 500.0f);
 
     GLuint modelLoc = glGetUniformLocation(shaderProgram, "model");
     GLuint viewLoc = glGetUniformLocation(shaderProgram, "view");
     GLuint projectionLoc = glGetUniformLocation(shaderProgram, "projection");
+
+    if (modelLoc == -1 || viewLoc == -1 || projectionLoc == -1) {
+        std::cerr << "Failed to get uniform locations!" << std::endl;
+        return -1;
+    }
 
     glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
     glUniformMatrix4fv(viewLoc, 1, GL_FALSE, glm::value_ptr(view));
@@ -158,6 +165,7 @@ int main() {
 
     // Rendering loop
     while (!glfwWindowShouldClose(window)) {
+        glClearColor(0.2f, 0.3f, 0.3f, 1.0f); // Background color
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
         glUseProgram(shaderProgram);
