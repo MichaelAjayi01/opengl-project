@@ -13,6 +13,8 @@
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb_image.h>
 
+#include <FastNoiseLite.h>
+
 int main() {
     std::cout << "All includes are successfully found!" << std::endl;
     return 0;
