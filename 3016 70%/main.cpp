@@ -1,50 +1,47 @@
 #include <iostream>
 #include <vector>
+#include <random>
 #include <glew.h>
 #include <glfw3.h>
 #include <FastNoiseLite.h>
 #include <glm.hpp>
 #include <gtc/matrix_transform.hpp>
 #include <gtc/type_ptr.hpp>
-
 #include "shaders/LoadShaders.h"
+#include <assimp/Importer.hpp>
+#include <assimp/scene.h>
+#include <assimp/postprocess.h>
 
 // Vertex structure for the terrain
 struct Vertex {
-    glm::vec3 position; // x, y, z
-    glm::vec3 color;    // RGB color
+    glm::vec3 position;
+    glm::vec3 color;
 };
 
-// Biome colors
+// Function to get biome colors
 glm::vec3 getBiomeColor(float noiseValue) {
     if (noiseValue < -0.3f) {
-        return glm::vec3(0.4f, 0.4f, 0.4f); // Ruins: Dark gray
+        return glm::vec3(0.4f, 0.4f, 0.4f); // Ruins
     }
     else if (noiseValue < 0.3f) {
-        return glm::vec3(0.6f, 0.4f, 0.2f); // Desolate Plains: Brown
+        return glm::vec3(0.6f, 0.4f, 0.2f); // Desolate plains
     }
     else {
-        return glm::vec3(0.0f, 0.5f, 0.0f); // Forest: Green
+        return glm::vec3(0.0f, 0.5f, 0.0f); // Forest
     }
 }
 
-// Generate the terrain vertices and indices
+// Function to generate terrain
 void generateTerrain(int gridSize, float scale, FastNoiseLite& noise, std::vector<Vertex>& vertices, std::vector<unsigned int>& indices) {
     for (int z = 0; z <= gridSize; ++z) {
         for (int x = 0; x <= gridSize; ++x) {
-            // Generate height using FastNoise
             float noiseValue = noise.GetNoise((float)x, (float)z);
             float height = noiseValue * scale;
 
-            // Determine vertex position and biome color
-            glm::vec3 position = glm::vec3((float)x, height, (float)z);
-            glm::vec3 color = getBiomeColor(noiseValue);
-
-            vertices.push_back({ position, color });
+            vertices.push_back({ glm::vec3((float)x, height, (float)z), getBiomeColor(noiseValue) });
         }
     }
 
-    // Generate indices for the plane (two triangles per grid cell)
     for (int z = 0; z < gridSize; ++z) {
         for (int x = 0; x < gridSize; ++x) {
             int topLeft = z * (gridSize + 1) + x;
@@ -52,12 +49,9 @@ void generateTerrain(int gridSize, float scale, FastNoiseLite& noise, std::vecto
             int bottomLeft = (z + 1) * (gridSize + 1) + x;
             int bottomRight = bottomLeft + 1;
 
-            // Triangle 1
             indices.push_back(topLeft);
             indices.push_back(bottomLeft);
             indices.push_back(topRight);
-
-            // Triangle 2
             indices.push_back(topRight);
             indices.push_back(bottomLeft);
             indices.push_back(bottomRight);
@@ -65,15 +59,143 @@ void generateTerrain(int gridSize, float scale, FastNoiseLite& noise, std::vecto
     }
 }
 
-// OpenGL setup and main rendering loop
+// Function to load texture from embedded data
+GLuint loadEmbeddedTexture(const aiTexture* texture) {
+    if (!texture) {
+        std::cerr << "[Error] Texture data is null!" << std::endl;
+        return 0;
+    }
+
+    GLuint textureID;
+    glGenTextures(1, &textureID);
+    glBindTexture(GL_TEXTURE_2D, textureID);
+
+    if (texture->mHeight == 0) {
+        std::cout << "[Info] Loading compressed embedded texture, width: " << texture->mWidth << std::endl;
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, texture->mWidth, 1, 0, GL_RGBA, GL_UNSIGNED_BYTE, texture->pcData);
+    }
+    else {
+        std::cout << "[Info] Loading uncompressed embedded texture, width: " << texture->mWidth << ", height: " << texture->mHeight << std::endl;
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, texture->mWidth, texture->mHeight, 0, GL_RGBA, GL_UNSIGNED_BYTE, texture->pcData);
+    }
+
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glGenerateMipmap(GL_TEXTURE_2D);
+
+    std::cout << "[Success] Texture loaded and mipmaps generated, ID: " << textureID << std::endl;
+    return textureID;
+}
+
+
+// Function to load sword model
+void loadSwordModel(const std::string& filePath, Assimp::Importer& importer, const aiScene*& scene) {
+    scene = importer.ReadFile(filePath, aiProcess_Triangulate | aiProcess_FlipUVs);
+    if (!scene || scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE || !scene->mRootNode) {
+        std::cerr << "Error loading model: " << importer.GetErrorString() << std::endl;
+    }
+    else {
+        std::cout << "Successfully loaded model: " << filePath << std::endl;
+    }
+}
+
+// Scatter swords randomly
+void scatterSwords(int numSwords, int gridSize, float scale, FastNoiseLite& noise, std::vector<glm::mat4>& swordTransforms) {
+    std::random_device rd;
+    std::mt19937 gen(rd());
+    std::uniform_int_distribution<> xDist(0, gridSize);
+    std::uniform_int_distribution<> zDist(0, gridSize);
+
+    for (int i = 0; i < numSwords; ++i) {
+        int x = xDist(gen);
+        int z = zDist(gen);
+
+        float noiseValue = noise.GetNoise((float)x, (float)z);
+        float y = noiseValue * scale;
+
+        glm::mat4 transform = glm::translate(glm::mat4(1.0f), glm::vec3(x, y, z));
+        transform = glm::rotate(transform, glm::radians(90.0f), glm::vec3(1.0f, 0.0f, 0.0f)); // Embed blade into the ground
+        swordTransforms.push_back(transform);
+    }
+}
+
+// Render sword models with debug logs for textures
+void renderSwords(const std::vector<glm::mat4>& swordTransforms, GLuint shaderProgram, const aiScene* scene) {
+    GLuint modelLoc = glGetUniformLocation(shaderProgram, "model");
+
+    for (const auto& transform : swordTransforms) {
+        glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(transform));
+
+        for (unsigned int i = 0; i < scene->mNumMeshes; i++) {
+            aiMesh* mesh = scene->mMeshes[i];
+            GLuint textureID = 0;
+
+            // Check if the material has embedded textures
+            if (scene->HasTextures()) {
+                std::cout << "[Info] Mesh " << i << " has embedded textures. Attempting to load..." << std::endl;
+                textureID = loadEmbeddedTexture(scene->mTextures[0]);
+                glActiveTexture(GL_TEXTURE0);
+                glBindTexture(GL_TEXTURE_2D, textureID);
+            }
+            else {
+                std::cerr << "[Error] No embedded textures found in the FBX file!" << std::endl;
+            }
+
+            // Debug vertex and index information
+            std::cout << "[Info] Rendering Mesh " << i << ", Vertices: " << mesh->mNumVertices << std::endl;
+
+            // Generate buffers for mesh data
+            std::vector<float> vertices;
+            std::vector<unsigned int> indices;
+
+            for (unsigned int j = 0; j < mesh->mNumVertices; j++) {
+                aiVector3D pos = mesh->mVertices[j];
+                vertices.push_back(pos.x);
+                vertices.push_back(pos.y);
+                vertices.push_back(pos.z);
+            }
+
+            for (unsigned int j = 0; j < mesh->mNumFaces; j++) {
+                aiFace face = mesh->mFaces[j];
+                for (unsigned int k = 0; k < face.mNumIndices; k++) {
+                    indices.push_back(face.mIndices[k]);
+                }
+            }
+
+            GLuint VAO, VBO, EBO;
+            glGenVertexArrays(1, &VAO);
+            glGenBuffers(1, &VBO);
+            glGenBuffers(1, &EBO);
+
+            glBindVertexArray(VAO);
+            glBindBuffer(GL_ARRAY_BUFFER, VBO);
+            glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(float), vertices.data(), GL_STATIC_DRAW);
+
+            glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
+            glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices.size() * sizeof(unsigned int), indices.data(), GL_STATIC_DRAW);
+
+            glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
+            glEnableVertexAttribArray(0);
+
+            glDrawElements(GL_TRIANGLES, indices.size(), GL_UNSIGNED_INT, 0);
+
+            glBindVertexArray(0);
+            glDeleteBuffers(1, &VBO);
+            glDeleteBuffers(1, &EBO);
+            glDeleteVertexArrays(1, &VAO);
+
+            std::cout << "[Info] Mesh " << i << " rendered successfully." << std::endl;
+        }
+    }
+}
+
 int main() {
-    // Initialize GLFW
+    // GLFW and GLEW Initialization
     if (!glfwInit()) {
         std::cerr << "Failed to initialize GLFW!" << std::endl;
         return -1;
     }
 
-    // Set OpenGL version to 4.6
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 6);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
@@ -86,7 +208,6 @@ int main() {
     }
     glfwMakeContextCurrent(window);
 
-    // Initialize GLEW
     if (glewInit() != GLEW_OK) {
         std::cerr << "Failed to initialize GLEW!" << std::endl;
         return -1;
@@ -94,98 +215,76 @@ int main() {
 
     glEnable(GL_DEPTH_TEST);
 
-    // Print OpenGL version to verify
-    std::cout << "OpenGL version: " << glGetString(GL_VERSION) << std::endl;
+    // Shader setup
+    ShaderInfo shaders[] = {
+        { GL_VERTEX_SHADER, "shaders/vertex_shader.glsl" },
+        { GL_FRAGMENT_SHADER, "shaders/fragment_shader.glsl" },
+        { GL_NONE, NULL }
+    };
+    GLuint shaderProgram = LoadShaders(shaders);
+    glUseProgram(shaderProgram);
 
-    // Set up FastNoise
+    // Terrain generation
     FastNoiseLite noise;
     noise.SetNoiseType(FastNoiseLite::NoiseType_OpenSimplex2);
     noise.SetFrequency(0.05f);
 
-    // Terrain generation
     int gridSize = 100;
     float scale = 5.0f;
     std::vector<Vertex> vertices;
     std::vector<unsigned int> indices;
     generateTerrain(gridSize, scale, noise, vertices, indices);
 
-    // Debugging terrain generation
-    std::cout << "Generated terrain with " << vertices.size() << " vertices and " << indices.size() << " indices." << std::endl;
-
-    // Create VAO, VBO, and EBO
     GLuint VAO, VBO, EBO;
     glGenVertexArrays(1, &VAO);
     glGenBuffers(1, &VBO);
     glGenBuffers(1, &EBO);
 
     glBindVertexArray(VAO);
-
     glBindBuffer(GL_ARRAY_BUFFER, VBO);
     glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(Vertex), vertices.data(), GL_STATIC_DRAW);
 
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices.size() * sizeof(unsigned int), indices.data(), GL_STATIC_DRAW);
 
-    // Vertex attributes
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, position));
     glEnableVertexAttribArray(0);
 
     glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, color));
     glEnableVertexAttribArray(1);
 
-    glBindVertexArray(0);
-
-    // Shader setup
-    ShaderInfo shaders[] = {
-        { GL_VERTEX_SHADER, "shaders/vertex_shader.glsl" },
-        { GL_FRAGMENT_SHADER, "shaders/fragment_shader.glsl" },
-        { GL_NONE, NULL } // Sentinel value
-    };
-
-    GLuint shaderProgram = LoadShaders(shaders);
-    if (shaderProgram == 0) {
-        std::cerr << "Failed to load shaders!" << std::endl;
-        return -1;
-    }
-    glUseProgram(shaderProgram);
-
-    // Camera and projection setup
     glm::mat4 model = glm::mat4(1.0f);
     glm::mat4 view = glm::lookAt(glm::vec3(50.0f, 50.0f, 150.0f), glm::vec3(50.0f, 0.0f, 50.0f), glm::vec3(0.0f, 1.0f, 0.0f));
     glm::mat4 projection = glm::perspective(glm::radians(45.0f), 800.0f / 600.0f, 0.1f, 500.0f);
 
     GLuint modelLoc = glGetUniformLocation(shaderProgram, "model");
     GLuint viewLoc = glGetUniformLocation(shaderProgram, "view");
-    GLuint projectionLoc = glGetUniformLocation(shaderProgram, "projection");
+    GLuint projLoc = glGetUniformLocation(shaderProgram, "projection");
 
-    if (modelLoc == -1 || viewLoc == -1 || projectionLoc == -1) {
-        std::cerr << "Failed to get uniform locations!" << std::endl;
-        return -1;
-    }
-
-    glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
     glUniformMatrix4fv(viewLoc, 1, GL_FALSE, glm::value_ptr(view));
-    glUniformMatrix4fv(projectionLoc, 1, GL_FALSE, glm::value_ptr(projection));
+    glUniformMatrix4fv(projLoc, 1, GL_FALSE, glm::value_ptr(projection));
 
-    // Rendering loop
+    // Sword scattering
+    Assimp::Importer importer;
+    const aiScene* swordScene = nullptr;
+    loadSwordModel("D:/Repos/MichaelAjayi01/opengl-project/3016 70%/models/sword2.fbx", importer, swordScene);
+
+    std::vector<glm::mat4> swordTransforms;
+    scatterSwords(10, gridSize, scale, noise, swordTransforms);
+
+    // Main rendering loop
     while (!glfwWindowShouldClose(window)) {
-        glClearColor(0.2f, 0.3f, 0.3f, 1.0f); // Background color
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-        glUseProgram(shaderProgram);
+        glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
         glBindVertexArray(VAO);
-
-        // Draw the terrain
         glDrawElements(GL_TRIANGLES, indices.size(), GL_UNSIGNED_INT, 0);
+
+        renderSwords(swordTransforms, shaderProgram, swordScene);
 
         glfwSwapBuffers(window);
         glfwPollEvents();
     }
-
-    // Cleanup
-    glDeleteVertexArrays(1, &VAO);
-    glDeleteBuffers(1, &VBO);
-    glDeleteBuffers(1, &EBO);
 
     glfwTerminate();
     return 0;
