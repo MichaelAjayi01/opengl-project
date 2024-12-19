@@ -11,6 +11,7 @@
 #include <assimp/Importer.hpp>
 #include <assimp/scene.h>
 #include <assimp/postprocess.h>
+#include <filesystem>
 
 // Vertex structure for the terrain
 struct Vertex {
@@ -267,10 +268,11 @@ int main() {
     // Sword scattering
     Assimp::Importer importer;
     const aiScene* swordScene = nullptr;
-    loadSwordModel("D:/Repos/MichaelAjayi01/opengl-project/3016 70%/models/sword2.fbx", importer, swordScene);
+    std::string modelPath = std::filesystem::current_path().string() + "/models/sword2.fbx";
+    loadSwordModel(modelPath, importer, swordScene);
 
     std::vector<glm::mat4> swordTransforms;
-    scatterSwords(10, gridSize, scale, noise, swordTransforms);
+    scatterSwords(20, gridSize, scale, noise, swordTransforms);
 
     // Main rendering loop
     while (!glfwWindowShouldClose(window)) {
