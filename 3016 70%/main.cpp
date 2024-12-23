@@ -13,6 +13,9 @@
 #include <assimp/postprocess.h>
 #include <filesystem>
 
+#define STB_IMAGE_IMPLEMENTATION
+#include <stb_image.h>
+
 // Vertex structure for the terrain
 struct Vertex {
     glm::vec3 position;
@@ -60,33 +63,34 @@ void generateTerrain(int gridSize, float scale, FastNoiseLite& noise, std::vecto
     }
 }
 
-// Function to load texture from embedded data
-GLuint loadEmbeddedTexture(const aiTexture* texture) {
-    if (!texture) {
-        std::cerr << "[Error] Texture data is null!" << std::endl;
-        return 0;
-    }
-
+GLuint loadTexture(const std::string& texturePath) {
     GLuint textureID;
     glGenTextures(1, &textureID);
     glBindTexture(GL_TEXTURE_2D, textureID);
 
-    if (texture->mHeight == 0) {
-        std::cout << "[Info] Loading compressed embedded texture, width: " << texture->mWidth << std::endl;
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, texture->mWidth, 1, 0, GL_RGBA, GL_UNSIGNED_BYTE, texture->pcData);
+    int width, height, nrChannels;
+    // Use STB_image to load the texture
+    unsigned char* data = stbi_load(texturePath.c_str(), &width, &height, &nrChannels, 0);
+    if (data) {
+        GLenum format = GL_RGB;
+        if (nrChannels == 4)
+            format = GL_RGBA;
+
+        glTexImage2D(GL_TEXTURE_2D, 0, format, width, height, 0, format, GL_UNSIGNED_BYTE, data);
+        glGenerateMipmap(GL_TEXTURE_2D);
     }
     else {
-        std::cout << "[Info] Loading uncompressed embedded texture, width: " << texture->mWidth << ", height: " << texture->mHeight << std::endl;
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, texture->mWidth, texture->mHeight, 0, GL_RGBA, GL_UNSIGNED_BYTE, texture->pcData);
+        std::cerr << "Failed to load texture: " << texturePath << std::endl;
     }
 
+    stbi_image_free(data);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glGenerateMipmap(GL_TEXTURE_2D);
 
-    std::cout << "[Success] Texture loaded and mipmaps generated, ID: " << textureID << std::endl;
     return textureID;
 }
+
+
 
 
 // Function to load sword model
@@ -123,24 +127,21 @@ void scatterSwords(int numSwords, int gridSize, float scale, FastNoiseLite& nois
 // Render sword models with debug logs for textures
 void renderSwords(const std::vector<glm::mat4>& swordTransforms, GLuint shaderProgram, const aiScene* scene) {
     GLuint modelLoc = glGetUniformLocation(shaderProgram, "model");
+    GLuint textureLoc = glGetUniformLocation(shaderProgram, "texture1");
+
+    // Path to your textures
+    std::string texturePath = std::filesystem::current_path().string() + "/models/Swords/texture/Texture_MAp_sword.png";
+    GLuint textureID = loadTexture(texturePath);
+
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, textureID);
+    glUniform1i(textureLoc, 0);  // Set the texture uniform to use texture unit 0
 
     for (const auto& transform : swordTransforms) {
         glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(transform));
 
         for (unsigned int i = 0; i < scene->mNumMeshes; i++) {
             aiMesh* mesh = scene->mMeshes[i];
-            GLuint textureID = 0;
-
-            // Check if the material has embedded textures
-            if (scene->HasTextures()) {
-                std::cout << "[Info] Mesh " << i << " has embedded textures. Attempting to load..." << std::endl;
-                textureID = loadEmbeddedTexture(scene->mTextures[0]);
-                glActiveTexture(GL_TEXTURE0);
-                glBindTexture(GL_TEXTURE_2D, textureID);
-            }
-            else {
-                std::cerr << "[Error] No embedded textures found in the FBX file!" << std::endl;
-            }
 
             // Debug vertex and index information
             std::cout << "[Info] Rendering Mesh " << i << ", Vertices: " << mesh->mNumVertices << std::endl;
@@ -149,13 +150,28 @@ void renderSwords(const std::vector<glm::mat4>& swordTransforms, GLuint shaderPr
             std::vector<float> vertices;
             std::vector<unsigned int> indices;
 
+            // Add positions, UVs, and normals to the vertex array
             for (unsigned int j = 0; j < mesh->mNumVertices; j++) {
                 aiVector3D pos = mesh->mVertices[j];
+                aiVector3D uv = mesh->mTextureCoords[0] ? mesh->mTextureCoords[0][j] : aiVector3D(0.0f, 0.0f, 0.0f);  // Handle missing UVs
+
+                // Add position
                 vertices.push_back(pos.x);
                 vertices.push_back(pos.y);
                 vertices.push_back(pos.z);
+
+                // Add UV coordinates
+                vertices.push_back(uv.x);
+                vertices.push_back(uv.y);
+
+                // Add normal
+                aiVector3D normal = mesh->mNormals[j];
+                vertices.push_back(normal.x);
+                vertices.push_back(normal.y);
+                vertices.push_back(normal.z);
             }
 
+            // Add indices
             for (unsigned int j = 0; j < mesh->mNumFaces; j++) {
                 aiFace face = mesh->mFaces[j];
                 for (unsigned int k = 0; k < face.mNumIndices; k++) {
@@ -175,8 +191,17 @@ void renderSwords(const std::vector<glm::mat4>& swordTransforms, GLuint shaderPr
             glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
             glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices.size() * sizeof(unsigned int), indices.data(), GL_STATIC_DRAW);
 
-            glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
+            // Set up position attribute
+            glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)0);
             glEnableVertexAttribArray(0);
+
+            // Set up UV attribute
+            glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(3 * sizeof(float)));
+            glEnableVertexAttribArray(1);
+
+            // Set up normal attribute
+            glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(5 * sizeof(float)));
+            glEnableVertexAttribArray(2);
 
             glDrawElements(GL_TRIANGLES, indices.size(), GL_UNSIGNED_INT, 0);
 
@@ -189,6 +214,8 @@ void renderSwords(const std::vector<glm::mat4>& swordTransforms, GLuint shaderPr
         }
     }
 }
+
+
 
 int main() {
     // GLFW and GLEW Initialization
@@ -268,11 +295,13 @@ int main() {
     // Sword scattering
     Assimp::Importer importer;
     const aiScene* swordScene = nullptr;
-    std::string modelPath = std::filesystem::current_path().string() + "/models/sword2.fbx";
+    std::string modelPath = std::filesystem::current_path().string() + "/models/Swords/fbx/_sword_1.fbx";
     loadSwordModel(modelPath, importer, swordScene);
 
+
+
     std::vector<glm::mat4> swordTransforms;
-    scatterSwords(20, gridSize, scale, noise, swordTransforms);
+    scatterSwords(5, gridSize, scale, noise, swordTransforms);
 
     // Main rendering loop
     while (!glfwWindowShouldClose(window)) {
@@ -287,7 +316,6 @@ int main() {
         glfwSwapBuffers(window);
         glfwPollEvents();
     }
-
     glfwTerminate();
     return 0;
 }
