@@ -104,8 +104,8 @@ void loadSwordModel(const std::string& filePath, Assimp::Importer& importer, con
     }
 }
 
-// Scatter swords randomly
-void scatterSwords(int numSwords, int gridSize, float scale, FastNoiseLite& noise, std::vector<glm::mat4>& swordTransforms) {
+
+void scatterSwords(int numSwords, int gridSize, float scale, float scaleFactor, FastNoiseLite& noise, std::vector<glm::mat4>& swordTransforms) {
     std::random_device rd;
     std::mt19937 gen(rd());
     std::uniform_int_distribution<> xDist(0, gridSize);
@@ -120,10 +120,11 @@ void scatterSwords(int numSwords, int gridSize, float scale, FastNoiseLite& nois
 
         glm::mat4 transform = glm::translate(glm::mat4(1.0f), glm::vec3(x, y, z));
         transform = glm::rotate(transform, glm::radians(90.0f), glm::vec3(1.0f, 0.0f, 0.0f)); // Embed blade into the ground
+        transform = glm::scale(transform, glm::vec3(scaleFactor)); // Apply scaling
+
         swordTransforms.push_back(transform);
     }
 }
-
 // Render sword models with debug logs for textures
 void renderSwords(const std::vector<glm::mat4>& swordTransforms, GLuint shaderProgram, const aiScene* scene) {
     GLuint modelLoc = glGetUniformLocation(shaderProgram, "model");
@@ -297,10 +298,9 @@ int main() {
     std::string modelPath = std::filesystem::current_path().string() + "/models/Swords/fbx/_sword_1.fbx";
     loadSwordModel(modelPath, importer, swordScene);
 
-
-
     std::vector<glm::mat4> swordTransforms;
-    scatterSwords(5, gridSize, scale, noise, swordTransforms);
+    float swordScaleFactor = 0.5f; // Example scale factor
+    scatterSwords(5, gridSize, scale, swordScaleFactor, noise, swordTransforms);
 
     // Main rendering loop
     while (!glfwWindowShouldClose(window)) {
