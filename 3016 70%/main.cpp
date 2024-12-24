@@ -216,7 +216,6 @@ void renderSwords(const std::vector<glm::mat4>& swordTransforms, GLuint shaderPr
 }
 
 
-
 int main() {
     // GLFW and GLEW Initialization
     if (!glfwInit()) {
