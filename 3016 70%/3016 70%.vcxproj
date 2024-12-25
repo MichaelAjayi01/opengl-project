@@ -143,9 +143,14 @@
   <ItemGroup>
     <ClCompile Include="main.cpp" />
     <ClCompile Include="shaders\LoadShaders.cpp" />
+    <ClCompile Include="sword.cpp" />
+    <ClCompile Include="terrain.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="shaders\LoadShaders.h" />
+    <ClInclude Include="sword.h" />
+    <ClInclude Include="terrain.h" />
+    <ClInclude Include="vertex.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="shaders\fragment_shader.glsl" />
