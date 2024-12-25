@@ -80,6 +80,12 @@ int main() {
     glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, color));
     glEnableVertexAttribArray(1);
 
+    glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, normal));
+    glEnableVertexAttribArray(2);
+
+    glVertexAttribPointer(3, 2, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, texCoord));
+    glEnableVertexAttribArray(3);
+
     glm::mat4 model = glm::mat4(1.0f);
     glm::mat4 view = glm::lookAt(glm::vec3(50.0f, 50.0f, 150.0f), glm::vec3(50.0f, 0.0f, 50.0f), glm::vec3(0.0f, 1.0f, 0.0f));
     glm::mat4 projection = glm::perspective(glm::radians(45.0f), 800.0f / 600.0f, 0.1f, 500.0f);
@@ -87,9 +93,24 @@ int main() {
     GLuint modelLoc = glGetUniformLocation(shaderProgram, "model");
     GLuint viewLoc = glGetUniformLocation(shaderProgram, "view");
     GLuint projLoc = glGetUniformLocation(shaderProgram, "projection");
+    GLuint lightPosLoc = glGetUniformLocation(shaderProgram, "lightPos");
+    GLuint viewPosLoc = glGetUniformLocation(shaderProgram, "viewPos");
+    GLuint lightColorLoc = glGetUniformLocation(shaderProgram, "lightColor");
+    GLuint objectColorLoc = glGetUniformLocation(shaderProgram, "objectColor");
+    GLuint useTextureLoc = glGetUniformLocation(shaderProgram, "useTexture");
 
     glUniformMatrix4fv(viewLoc, 1, GL_FALSE, glm::value_ptr(view));
     glUniformMatrix4fv(projLoc, 1, GL_FALSE, glm::value_ptr(projection));
+
+    glm::vec3 lightPos(100.0f, 100.0f, 100.0f);
+    glm::vec3 viewPos(50.0f, 50.0f, 150.0f);
+    glm::vec3 lightColor(1.0f, 1.0f, 1.0f);
+    glm::vec3 objectColor(1.0f, 1.0f, 1.0f);
+
+    glUniform3fv(lightPosLoc, 1, glm::value_ptr(lightPos));
+    glUniform3fv(viewPosLoc, 1, glm::value_ptr(viewPos));
+    glUniform3fv(lightColorLoc, 1, glm::value_ptr(lightColor));
+    glUniform3fv(objectColorLoc, 1, glm::value_ptr(objectColor));
 
     // Sword scattering
     Sword sword("models/Swords/fbx/_sword_1.fbx");
@@ -104,9 +125,11 @@ int main() {
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
         glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
+        glUniform1i(useTextureLoc, GL_FALSE);
         glBindVertexArray(VAO);
         glDrawElements(GL_TRIANGLES, indices.size(), GL_UNSIGNED_INT, 0);
 
+        glUniform1i(useTextureLoc, GL_TRUE);
         sword.renderSwords(swordTransforms, shaderProgram);
 
         glfwSwapBuffers(window);

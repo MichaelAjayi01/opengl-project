@@ -6,13 +6,16 @@ Terrain::Terrain(int gridSize, float scale, FastNoiseLite& noise)
 
 glm::vec3 Terrain::getBiomeColor(float noiseValue) {
     if (noiseValue < -0.3f) {
-        return glm::vec3(0.4f, 0.4f, 0.4f); // Ruins
+        return glm::vec3(0.3f, 0.1f, 0.1f); // Dark red ground
+    }
+    else if (noiseValue < 0.0f) {
+        return glm::vec3(0.2f, 0.1f, 0.1f); // Dark brown ground
     }
     else if (noiseValue < 0.3f) {
-        return glm::vec3(0.6f, 0.4f, 0.2f); // Desolate plains
+        return glm::vec3(0.1f, 0.1f, 0.1f); // Dark gray ground
     }
     else {
-        return glm::vec3(0.0f, 0.5f, 0.0f); // Forest
+        return glm::vec3(0.2f, 0.2f, 0.2f); // Darker gray ground
     }
 }
 
@@ -22,7 +25,7 @@ void Terrain::generateTerrain(std::vector<Vertex>& vertices, std::vector<unsigne
             float noiseValue = noise.GetNoise((float)x, (float)z);
             float height = noiseValue * scale;
 
-            vertices.push_back({ glm::vec3((float)x, height, (float)z), getBiomeColor(noiseValue) });
+            vertices.push_back({ glm::vec3((float)x, height, (float)z), getBiomeColor(noiseValue), glm::vec3(0.0f, 1.0f, 0.0f) });
         }
     }
 
@@ -40,5 +43,22 @@ void Terrain::generateTerrain(std::vector<Vertex>& vertices, std::vector<unsigne
             indices.push_back(bottomLeft);
             indices.push_back(bottomRight);
         }
+    }
+
+    // Calculate normals
+    for (int i = 0; i < indices.size(); i += 3) {
+        glm::vec3 v0 = vertices[indices[i]].position;
+        glm::vec3 v1 = vertices[indices[i + 1]].position;
+        glm::vec3 v2 = vertices[indices[i + 2]].position;
+
+        glm::vec3 normal = glm::normalize(glm::cross(v1 - v0, v2 - v0));
+
+        vertices[indices[i]].normal += normal;
+        vertices[indices[i + 1]].normal += normal;
+        vertices[indices[i + 2]].normal += normal;
+    }
+
+    for (auto& vertex : vertices) {
+        vertex.normal = glm::normalize(vertex.normal);
     }
 }
