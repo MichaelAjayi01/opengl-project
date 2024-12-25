@@ -90,9 +90,6 @@ GLuint loadTexture(const std::string& texturePath) {
     return textureID;
 }
 
-
-
-
 // Function to load sword model
 void loadSwordModel(const std::string& filePath, Assimp::Importer& importer, const aiScene*& scene) {
     scene = importer.ReadFile(filePath, aiProcess_Triangulate | aiProcess_FlipUVs);
@@ -104,27 +101,43 @@ void loadSwordModel(const std::string& filePath, Assimp::Importer& importer, con
     }
 }
 
-
-void scatterSwords(int numSwords, int gridSize, float scale, float scaleFactor, FastNoiseLite& noise, std::vector<glm::mat4>& swordTransforms) {
+void scatterSwords(int numSwords, int gridSize, float scale, float scaleFactor, float offset, FastNoiseLite& noise, std::vector<glm::mat4>& swordTransforms) {
     std::random_device rd;
     std::mt19937 gen(rd());
     std::uniform_int_distribution<> xDist(0, gridSize);
     std::uniform_int_distribution<> zDist(0, gridSize);
+    std::uniform_real_distribution<float> angleDist(-10.0f, 10.0f); // Random tilt angle between -10 and 10 degrees
+    std::uniform_real_distribution<float> rotationDist(0.0f, 360.0f); // Random rotation angle between 0 and 360 degrees
 
     for (int i = 0; i < numSwords; ++i) {
         int x = xDist(gen);
         int z = zDist(gen);
 
         float noiseValue = noise.GetNoise((float)x, (float)z);
-        float y = noiseValue * scale;
+        float terrainHeight = noiseValue * scale;
+
+        // Adjust the y-coordinate to embed the sword into the terrain with an offset
+        float y = terrainHeight + offset;
 
         glm::mat4 transform = glm::translate(glm::mat4(1.0f), glm::vec3(x, y, z));
-        transform = glm::rotate(transform, glm::radians(90.0f), glm::vec3(1.0f, 0.0f, 0.0f)); // Embed blade into the ground
+        transform = glm::rotate(transform, glm::radians(180.0f), glm::vec3(1.0f, 0.0f, 0.0f)); // Rotate to make the blade point downwards
+        transform = glm::rotate(transform, glm::radians(90.0f), glm::vec3(0.0f, 1.0f, 0.0f)); // Rotate around y-axis
+
+        // Apply random tilt and rotation
+        float tiltAngleX = angleDist(gen);
+        float tiltAngleZ = angleDist(gen);
+        float rotationAngleY = rotationDist(gen);
+
+        transform = glm::rotate(transform, glm::radians(tiltAngleX), glm::vec3(1.0f, 0.0f, 0.0f)); // Random tilt around x-axis
+        transform = glm::rotate(transform, glm::radians(rotationAngleY), glm::vec3(0.0f, 1.0f, 0.0f)); // Random rotation around y-axis
+        transform = glm::rotate(transform, glm::radians(tiltAngleZ), glm::vec3(0.0f, 0.0f, 1.0f)); // Random tilt around z-axis
+
         transform = glm::scale(transform, glm::vec3(scaleFactor)); // Apply scaling
 
         swordTransforms.push_back(transform);
     }
 }
+
 // Render sword models with debug logs for textures
 void renderSwords(const std::vector<glm::mat4>& swordTransforms, GLuint shaderProgram, const aiScene* scene) {
     GLuint modelLoc = glGetUniformLocation(shaderProgram, "model");
@@ -216,7 +229,6 @@ void renderSwords(const std::vector<glm::mat4>& swordTransforms, GLuint shaderPr
     }
 }
 
-
 int main() {
     // GLFW and GLEW Initialization
     if (!glfwInit()) {
@@ -299,8 +311,9 @@ int main() {
     loadSwordModel(modelPath, importer, swordScene);
 
     std::vector<glm::mat4> swordTransforms;
-    float swordScaleFactor = 0.5f; // Example scale factor
-    scatterSwords(5, gridSize, scale, swordScaleFactor, noise, swordTransforms);
+    float swordScaleFactor = 0.2f; // Example scale factor
+    float offset = 7.0f; // Example offset value to control embedding depth
+    scatterSwords(10, gridSize, scale, swordScaleFactor, offset, noise, swordTransforms);
 
     // Main rendering loop
     while (!glfwWindowShouldClose(window)) {
