@@ -9,6 +9,7 @@
 #include <assimp/Importer.hpp> // Include Assimp importer header
 #include <assimp/scene.h> // Include Assimp scene header
 #include <assimp/postprocess.h> // Include Assimp postprocess header
+#include <unordered_set>
 
 Sword::Sword(const std::string& modelPath1, const std::string& modelPath2) {
     loadSwordModel(modelPath1, importer1, swordScene1, textureID1);
@@ -27,6 +28,13 @@ void Sword::loadSwordModel(const std::string& filePath, Assimp::Importer& import
 }
 
 
+struct pair_hash {
+    template <class T1, class T2>
+    std::size_t operator() (const std::pair<T1, T2>& pair) const {
+        return std::hash<T1>()(pair.first) ^ std::hash<T2>()(pair.second);
+    }
+};
+
 void Sword::scatterSwords(int numSwords, int gridSize, float scale, float scaleFactor, float offset, FastNoiseLite& noise, std::vector<glm::mat4>& swordTransforms1, std::vector<glm::mat4>& swordTransforms2) {
     std::random_device rd;
     std::mt19937 gen(rd());
@@ -35,9 +43,21 @@ void Sword::scatterSwords(int numSwords, int gridSize, float scale, float scaleF
     std::uniform_real_distribution<float> angleDist(-10.0f, 10.0f); // Random tilt angle between -10 and 10 degrees
     std::uniform_real_distribution<float> rotationDist(0.0f, 360.0f); // Random rotation angle between 0 and 360 degrees
 
+    std::unordered_set<std::pair<int, int>, pair_hash> occupiedPositions;
+
     for (int i = 0; i < numSwords; ++i) {
-        int x = xDist(gen);
-        int z = zDist(gen);
+        int x, z;
+        std::pair<int, int> position;
+
+        // Find an unoccupied position
+        do {
+            x = xDist(gen);
+            z = zDist(gen);
+            position = std::make_pair(x, z);
+        } while (occupiedPositions.find(position) != occupiedPositions.end());
+
+        // Mark the position as occupied
+        occupiedPositions.insert(position);
 
         float noiseValue = noise.GetNoise((float)x, (float)z);
         float terrainHeight = noiseValue * scale;
@@ -63,7 +83,8 @@ void Sword::scatterSwords(int numSwords, int gridSize, float scale, float scaleF
         // Alternate between sword models
         if (i % 2 == 0) {
             swordTransforms1.push_back(transform);
-        } else {
+        }
+        else {
             swordTransforms2.push_back(transform);
         }
     }

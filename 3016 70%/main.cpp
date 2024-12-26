@@ -123,7 +123,7 @@ int main() {
     std::vector<glm::mat4> swordTransforms2;
     float swordScaleFactor = 0.2f; // Example scale factor
     float offset = 7.0f; // Example offset value to control embedding depth
-    sword.scatterSwords(10, gridSize, scale, swordScaleFactor, offset, noise, swordTransforms1, swordTransforms2);
+    sword.scatterSwords(15, gridSize, scale, swordScaleFactor, offset, noise, swordTransforms1, swordTransforms2);
 
     GLuint swordViewLoc = glGetUniformLocation(swordShaderProgram, "view");
     GLuint swordProjLoc = glGetUniformLocation(swordShaderProgram, "projection");
