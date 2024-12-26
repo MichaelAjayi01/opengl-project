@@ -117,14 +117,14 @@ int main() {
     glUniform3fv(terrainLightColorLoc, 1, glm::value_ptr(lightColor));
 
     // Sword scattering
-    Sword sword("models/Swords/fbx/_sword_1.fbx");
+    Sword sword("models/Swords/fbx/_sword_1.fbx", "models/Swords/fbx/_sword_2.fbx");
 
-    std::vector<glm::mat4> swordTransforms;
+    std::vector<glm::mat4> swordTransforms1;
+    std::vector<glm::mat4> swordTransforms2;
     float swordScaleFactor = 0.2f; // Example scale factor
     float offset = 7.0f; // Example offset value to control embedding depth
-    sword.scatterSwords(10, gridSize, scale, swordScaleFactor, offset, noise, swordTransforms);
+    sword.scatterSwords(10, gridSize, scale, swordScaleFactor, offset, noise, swordTransforms1, swordTransforms2);
 
-    GLuint swordModelLoc = glGetUniformLocation(swordShaderProgram, "model");
     GLuint swordViewLoc = glGetUniformLocation(swordShaderProgram, "view");
     GLuint swordProjLoc = glGetUniformLocation(swordShaderProgram, "projection");
 
@@ -145,7 +145,7 @@ int main() {
 
         // Render the swords
         glUseProgram(swordShaderProgram);
-        sword.renderSwords(swordTransforms, swordShaderProgram);
+        sword.renderSwords(swordTransforms1, swordTransforms2, swordShaderProgram);
 
         // Swap buffers and poll IO events
         glfwSwapBuffers(window);

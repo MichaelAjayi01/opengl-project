@@ -10,23 +10,24 @@
 #include <assimp/scene.h> // Include Assimp scene header
 #include <assimp/postprocess.h> // Include Assimp postprocess header
 
-Sword::Sword(const std::string& modelPath) {
-    loadSwordModel(modelPath);
-    std::string texturePath = std::filesystem::current_path().string() + "/models/Swords/texture/Texture_MAp_sword.png";
-    textureID = loadTexture(texturePath);
+Sword::Sword(const std::string& modelPath1, const std::string& modelPath2) {
+    loadSwordModel(modelPath1, importer1, swordScene1, textureID1);
+    loadSwordModel(modelPath2, importer2, swordScene2, textureID2);
 }
 
-void Sword::loadSwordModel(const std::string& filePath) {
-    swordScene = importer.ReadFile(filePath, aiProcess_Triangulate | aiProcess_FlipUVs);
-    if (!swordScene || swordScene->mFlags & AI_SCENE_FLAGS_INCOMPLETE || !swordScene->mRootNode) {
+void Sword::loadSwordModel(const std::string& filePath, Assimp::Importer& importer, const aiScene*& scene, GLuint& textureID) {
+    scene = importer.ReadFile(filePath, aiProcess_Triangulate | aiProcess_FlipUVs);
+    if (!scene || scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE || !scene->mRootNode) {
         std::cerr << "Error loading model: " << importer.GetErrorString() << std::endl;
-    }
-    else {
+    } else {
         std::cout << "Successfully loaded model: " << filePath << std::endl;
+        std::string texturePath = std::filesystem::current_path().string() + "/models/Swords/texture/Texture_MAp_sword.png";
+        textureID = loadTexture(texturePath);
     }
 }
 
-void Sword::scatterSwords(int numSwords, int gridSize, float scale, float scaleFactor, float offset, FastNoiseLite& noise, std::vector<glm::mat4>& swordTransforms) {
+
+void Sword::scatterSwords(int numSwords, int gridSize, float scale, float scaleFactor, float offset, FastNoiseLite& noise, std::vector<glm::mat4>& swordTransforms1, std::vector<glm::mat4>& swordTransforms2) {
     std::random_device rd;
     std::mt19937 gen(rd());
     std::uniform_int_distribution<> xDist(0, gridSize);
@@ -59,26 +60,30 @@ void Sword::scatterSwords(int numSwords, int gridSize, float scale, float scaleF
 
         transform = glm::scale(transform, glm::vec3(scaleFactor)); // Apply scaling
 
-        swordTransforms.push_back(transform);
+        // Alternate between sword models
+        if (i % 2 == 0) {
+            swordTransforms1.push_back(transform);
+        } else {
+            swordTransforms2.push_back(transform);
+        }
     }
 }
 
-void Sword::renderSwords(const std::vector<glm::mat4>& swordTransforms, GLuint shaderProgram) {
+
+void Sword::renderSwords(const std::vector<glm::mat4>& swordTransforms1, const std::vector<glm::mat4>& swordTransforms2, GLuint shaderProgram) {
     GLuint modelLoc = glGetUniformLocation(shaderProgram, "model");
     GLuint textureLoc = glGetUniformLocation(shaderProgram, "texture1");
 
+    // Render first sword model
     glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, textureID);
+    glBindTexture(GL_TEXTURE_2D, textureID1);
     glUniform1i(textureLoc, 0);  // Set the texture uniform to use texture unit 0
 
-    for (const auto& transform : swordTransforms) {
+    for (const auto& transform : swordTransforms1) {
         glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(transform));
 
-        for (unsigned int i = 0; i < swordScene->mNumMeshes; i++) {
-            aiMesh* mesh = swordScene->mMeshes[i];
-
-            // Debug vertex and index information
-            std::cout << "[Info] Rendering Mesh " << i << ", Vertices: " << mesh->mNumVertices << std::endl;
+        for (unsigned int i = 0; i < swordScene1->mNumMeshes; i++) {
+            aiMesh* mesh = swordScene1->mMeshes[i];
 
             // Generate buffers for mesh data
             std::vector<float> vertices;
@@ -143,12 +148,85 @@ void Sword::renderSwords(const std::vector<glm::mat4>& swordTransforms, GLuint s
             glDeleteBuffers(1, &VBO);
             glDeleteBuffers(1, &EBO);
             glDeleteVertexArrays(1, &VAO);
+        }
+    }
 
-            std::cout << "[Info] Mesh " << i << " rendered successfully." << std::endl;
+    // Render second sword model
+    glBindTexture(GL_TEXTURE_2D, textureID2);
+    glUniform1i(textureLoc, 0);  // Set the texture uniform to use texture unit 0
+
+    for (const auto& transform : swordTransforms2) {
+        glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(transform));
+
+        for (unsigned int i = 0; i < swordScene2->mNumMeshes; i++) {
+            aiMesh* mesh = swordScene2->mMeshes[i];
+
+            // Generate buffers for mesh data
+            std::vector<float> vertices;
+            std::vector<unsigned int> indices;
+
+            // Add positions, UVs, and normals to the vertex array
+            for (unsigned int j = 0; j < mesh->mNumVertices; j++) {
+                aiVector3D pos = mesh->mVertices[j];
+                aiVector3D uv = mesh->mTextureCoords[0] ? mesh->mTextureCoords[0][j] : aiVector3D(0.0f, 0.0f, 0.0f);  // Handle missing UVs
+
+                // Add position
+                vertices.push_back(pos.x);
+                vertices.push_back(pos.y);
+                vertices.push_back(pos.z);
+
+                // Add UV coordinates
+                vertices.push_back(uv.x);
+                vertices.push_back(uv.y);
+
+                // Add normal
+                aiVector3D normal = mesh->mNormals[j];
+                vertices.push_back(normal.x);
+                vertices.push_back(normal.y);
+                vertices.push_back(normal.z);
+            }
+
+            // Add indices
+            for (unsigned int j = 0; j < mesh->mNumFaces; j++) {
+                aiFace face = mesh->mFaces[j];
+                for (unsigned int k = 0; k < face.mNumIndices; k++) {
+                    indices.push_back(face.mIndices[k]);
+                }
+            }
+
+            GLuint VAO, VBO, EBO;
+            glGenVertexArrays(1, &VAO);
+            glGenBuffers(1, &VBO);
+            glGenBuffers(1, &EBO);
+
+            glBindVertexArray(VAO);
+            glBindBuffer(GL_ARRAY_BUFFER, VBO);
+            glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(float), vertices.data(), GL_STATIC_DRAW);
+
+            glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
+            glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices.size() * sizeof(unsigned int), indices.data(), GL_STATIC_DRAW);
+
+            // Set up position attribute
+            glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)0);
+            glEnableVertexAttribArray(0);
+
+            // Set up UV attribute
+            glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(3 * sizeof(float)));
+            glEnableVertexAttribArray(1);
+
+            // Set up normal attribute
+            glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(5 * sizeof(float)));
+            glEnableVertexAttribArray(2);
+
+            glDrawElements(GL_TRIANGLES, indices.size(), GL_UNSIGNED_INT, 0);
+
+            glBindVertexArray(0);
+            glDeleteBuffers(1, &VBO);
+            glDeleteBuffers(1, &EBO);
+            glDeleteVertexArrays(1, &VAO);
         }
     }
 }
-
 GLuint Sword::loadTexture(const std::string& texturePath) {
     GLuint textureID;
     glGenTextures(1, &textureID);
