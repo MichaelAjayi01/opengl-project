@@ -153,8 +153,13 @@
     <ClInclude Include="vertex.h" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="shaders\fragment_shader.glsl" />
-    <None Include="shaders\vertex_shader.glsl" />
+    <Image Include="models\Swords\texture\Texture_MAp_sword.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="shaders\sword_fragment_shader.glsl" />
+    <None Include="shaders\terrain_fragment_shader.glsl" />
+    <None Include="shaders\terrain_vertex_shader.glsl" />
+    <None Include="shaders\sword_vertex_shader.glsl" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

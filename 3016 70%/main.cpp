@@ -40,14 +40,21 @@ int main() {
 
     glEnable(GL_DEPTH_TEST);
 
-    // Shader setup
-    ShaderInfo shaders[] = {
-        { GL_VERTEX_SHADER, "shaders/vertex_shader.glsl" },
-        { GL_FRAGMENT_SHADER, "shaders/fragment_shader.glsl" },
+    // Shader setup for terrain
+    ShaderInfo terrainShaders[] = {
+        { GL_VERTEX_SHADER, "shaders/terrain_vertex_shader.glsl" },
+        { GL_FRAGMENT_SHADER, "shaders/terrain_fragment_shader.glsl" },
         { GL_NONE, NULL }
     };
-    GLuint shaderProgram = LoadShaders(shaders);
-    glUseProgram(shaderProgram);
+    GLuint terrainShaderProgram = LoadShaders(terrainShaders);
+
+    // Shader setup for swords
+    ShaderInfo swordShaders[] = {
+        { GL_VERTEX_SHADER, "shaders/sword_vertex_shader.glsl" },
+        { GL_FRAGMENT_SHADER, "shaders/sword_fragment_shader.glsl" },
+        { GL_NONE, NULL }
+    };
+    GLuint swordShaderProgram = LoadShaders(swordShaders);
 
     // Terrain generation
     FastNoiseLite noise;
@@ -62,16 +69,16 @@ int main() {
     Terrain terrain(gridSize, scale, noise);
     terrain.generateTerrain(vertices, indices);
 
-    GLuint VAO, VBO, EBO;
-    glGenVertexArrays(1, &VAO);
-    glGenBuffers(1, &VBO);
-    glGenBuffers(1, &EBO);
+    GLuint terrainVAO, terrainVBO, terrainEBO;
+    glGenVertexArrays(1, &terrainVAO);
+    glGenBuffers(1, &terrainVBO);
+    glGenBuffers(1, &terrainEBO);
 
-    glBindVertexArray(VAO);
-    glBindBuffer(GL_ARRAY_BUFFER, VBO);
+    glBindVertexArray(terrainVAO);
+    glBindBuffer(GL_ARRAY_BUFFER, terrainVBO);
     glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(Vertex), vertices.data(), GL_STATIC_DRAW);
 
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, terrainEBO);
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices.size() * sizeof(unsigned int), indices.data(), GL_STATIC_DRAW);
 
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, position));
@@ -90,27 +97,24 @@ int main() {
     glm::mat4 view = glm::lookAt(glm::vec3(50.0f, 50.0f, 150.0f), glm::vec3(50.0f, 0.0f, 50.0f), glm::vec3(0.0f, 1.0f, 0.0f));
     glm::mat4 projection = glm::perspective(glm::radians(45.0f), 800.0f / 600.0f, 0.1f, 500.0f);
 
-    GLuint modelLoc = glGetUniformLocation(shaderProgram, "model");
-    GLuint viewLoc = glGetUniformLocation(shaderProgram, "view");
-    GLuint projLoc = glGetUniformLocation(shaderProgram, "projection");
-    GLuint lightPosLoc = glGetUniformLocation(shaderProgram, "lightPos");
-    GLuint viewPosLoc = glGetUniformLocation(shaderProgram, "viewPos");
-    GLuint lightColorLoc = glGetUniformLocation(shaderProgram, "lightColor");
-    GLuint objectColorLoc = glGetUniformLocation(shaderProgram, "objectColor");
-    GLuint useTextureLoc = glGetUniformLocation(shaderProgram, "useTexture");
+    GLuint terrainModelLoc = glGetUniformLocation(terrainShaderProgram, "model");
+    GLuint terrainViewLoc = glGetUniformLocation(terrainShaderProgram, "view");
+    GLuint terrainProjLoc = glGetUniformLocation(terrainShaderProgram, "projection");
+    GLuint terrainLightPosLoc = glGetUniformLocation(terrainShaderProgram, "lightPos");
+    GLuint terrainViewPosLoc = glGetUniformLocation(terrainShaderProgram, "viewPos");
+    GLuint terrainLightColorLoc = glGetUniformLocation(terrainShaderProgram, "lightColor");
 
-    glUniformMatrix4fv(viewLoc, 1, GL_FALSE, glm::value_ptr(view));
-    glUniformMatrix4fv(projLoc, 1, GL_FALSE, glm::value_ptr(projection));
+    glUseProgram(terrainShaderProgram);
+    glUniformMatrix4fv(terrainViewLoc, 1, GL_FALSE, glm::value_ptr(view));
+    glUniformMatrix4fv(terrainProjLoc, 1, GL_FALSE, glm::value_ptr(projection));
 
     glm::vec3 lightPos(100.0f, 100.0f, 100.0f);
     glm::vec3 viewPos(50.0f, 50.0f, 150.0f);
     glm::vec3 lightColor(1.0f, 1.0f, 1.0f);
-    glm::vec3 objectColor(1.0f, 1.0f, 1.0f);
 
-    glUniform3fv(lightPosLoc, 1, glm::value_ptr(lightPos));
-    glUniform3fv(viewPosLoc, 1, glm::value_ptr(viewPos));
-    glUniform3fv(lightColorLoc, 1, glm::value_ptr(lightColor));
-    glUniform3fv(objectColorLoc, 1, glm::value_ptr(objectColor));
+    glUniform3fv(terrainLightPosLoc, 1, glm::value_ptr(lightPos));
+    glUniform3fv(terrainViewPosLoc, 1, glm::value_ptr(viewPos));
+    glUniform3fv(terrainLightColorLoc, 1, glm::value_ptr(lightColor));
 
     // Sword scattering
     Sword sword("models/Swords/fbx/_sword_1.fbx");
@@ -120,21 +124,35 @@ int main() {
     float offset = 7.0f; // Example offset value to control embedding depth
     sword.scatterSwords(10, gridSize, scale, swordScaleFactor, offset, noise, swordTransforms);
 
+    GLuint swordModelLoc = glGetUniformLocation(swordShaderProgram, "model");
+    GLuint swordViewLoc = glGetUniformLocation(swordShaderProgram, "view");
+    GLuint swordProjLoc = glGetUniformLocation(swordShaderProgram, "projection");
+
+    glUseProgram(swordShaderProgram);
+    glUniformMatrix4fv(swordViewLoc, 1, GL_FALSE, glm::value_ptr(view));
+    glUniformMatrix4fv(swordProjLoc, 1, GL_FALSE, glm::value_ptr(projection));
+
     // Main rendering loop
     while (!glfwWindowShouldClose(window)) {
+        // Clear the screen
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-        glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
-        glUniform1i(useTextureLoc, GL_FALSE);
-        glBindVertexArray(VAO);
+        // Render the terrain
+        glUseProgram(terrainShaderProgram);
+        glUniformMatrix4fv(terrainModelLoc, 1, GL_FALSE, glm::value_ptr(model));
+        glBindVertexArray(terrainVAO);
         glDrawElements(GL_TRIANGLES, indices.size(), GL_UNSIGNED_INT, 0);
 
-        glUniform1i(useTextureLoc, GL_TRUE);
-        sword.renderSwords(swordTransforms, shaderProgram);
+        // Render the swords
+        glUseProgram(swordShaderProgram);
+        sword.renderSwords(swordTransforms, swordShaderProgram);
 
+        // Swap buffers and poll IO events
         glfwSwapBuffers(window);
         glfwPollEvents();
     }
+
+    // Clean up and exit
     glfwTerminate();
     return 0;
 }

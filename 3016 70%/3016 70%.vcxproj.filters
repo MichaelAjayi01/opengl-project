@@ -46,7 +46,22 @@
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <None Include="shaders\fragment_shader.glsl" />
-    <None Include="shaders\vertex_shader.glsl" />
+    <Image Include="models\Swords\texture\Texture_MAp_sword.png">
+      <Filter>Source Files</Filter>
+    </Image>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="shaders\sword_fragment_shader.glsl">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="shaders\terrain_fragment_shader.glsl">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="shaders\terrain_vertex_shader.glsl">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="shaders\sword_vertex_shader.glsl">
+      <Filter>Shaders</Filter>
+    </None>
   </ItemGroup>
 </Project>

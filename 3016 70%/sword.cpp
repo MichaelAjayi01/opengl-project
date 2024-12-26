@@ -155,7 +155,6 @@ GLuint Sword::loadTexture(const std::string& texturePath) {
     glBindTexture(GL_TEXTURE_2D, textureID);
 
     int width, height, nrChannels;
-    // Use STB_image to load the texture
     unsigned char* data = stbi_load(texturePath.c_str(), &width, &height, &nrChannels, 0);
     if (data) {
         GLenum format = GL_RGB;
@@ -164,8 +163,7 @@ GLuint Sword::loadTexture(const std::string& texturePath) {
 
         glTexImage2D(GL_TEXTURE_2D, 0, format, width, height, 0, format, GL_UNSIGNED_BYTE, data);
         glGenerateMipmap(GL_TEXTURE_2D);
-    }
-    else {
+    } else {
         std::cerr << "Failed to load texture: " << texturePath << std::endl;
     }
 
