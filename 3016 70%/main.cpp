@@ -185,7 +185,7 @@ int main() {
 
         // Update camera position based on terrain height
         float terrainHeight = terrain.getHeightAt(camera.Position.x, camera.Position.z);
-        camera.UpdateCameraPosition(terrainHeight);
+        camera.Position.y = glm::mix(camera.Position.y, terrainHeight + 2.0f, 0.1f); // Smoothly interpolate to the target height
 
         // Clear the screen
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
