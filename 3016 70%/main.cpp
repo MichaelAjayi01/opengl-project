@@ -9,10 +9,33 @@
 #include "Vertex.h"
 #include "Terrain.h"
 #include "Sword.h"
+#include "Camera.h"
 #include "shaders/LoadShaders.h"
 
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb_image.h>
+
+// Create a Camera object
+Camera camera(glm::vec3(50.0f, 50.0f, 150.0f), glm::vec3(0.0f, 1.0f, 0.0f), -90.0f, 0.0f);
+
+float lastX = 400, lastY = 300;
+bool firstMouse = true;
+
+void mouse_callback(GLFWwindow* window, double xpos, double ypos) {
+    if (firstMouse) {
+        lastX = xpos;
+        lastY = ypos;
+        firstMouse = false;
+    }
+
+    float xoffset = xpos - lastX;
+    float yoffset = lastY - ypos; // Reversed since y-coordinates go from bottom to top
+
+    lastX = xpos;
+    lastY = ypos;
+
+    camera.ProcessMouseMovement(xoffset, yoffset);
+}
 
 int main() {
     // GLFW and GLEW Initialization
@@ -39,6 +62,10 @@ int main() {
     }
 
     glEnable(GL_DEPTH_TEST);
+
+    // Set the mouse callback
+    glfwSetCursorPosCallback(window, mouse_callback);
+    glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 
     // Shader setup for terrain
     ShaderInfo terrainShaders[] = {
@@ -94,7 +121,6 @@ int main() {
     glEnableVertexAttribArray(3);
 
     glm::mat4 model = glm::mat4(1.0f);
-    glm::mat4 view = glm::lookAt(glm::vec3(50.0f, 50.0f, 150.0f), glm::vec3(50.0f, 0.0f, 50.0f), glm::vec3(0.0f, 1.0f, 0.0f));
     glm::mat4 projection = glm::perspective(glm::radians(45.0f), 800.0f / 600.0f, 0.1f, 500.0f);
 
     GLuint terrainModelLoc = glGetUniformLocation(terrainShaderProgram, "model");
@@ -105,15 +131,12 @@ int main() {
     GLuint terrainLightColorLoc = glGetUniformLocation(terrainShaderProgram, "lightColor");
 
     glUseProgram(terrainShaderProgram);
-    glUniformMatrix4fv(terrainViewLoc, 1, GL_FALSE, glm::value_ptr(view));
     glUniformMatrix4fv(terrainProjLoc, 1, GL_FALSE, glm::value_ptr(projection));
 
     glm::vec3 lightPos(100.0f, 100.0f, 100.0f);
-    glm::vec3 viewPos(50.0f, 50.0f, 150.0f);
     glm::vec3 lightColor(1.0f, 1.0f, 1.0f);
 
     glUniform3fv(terrainLightPosLoc, 1, glm::value_ptr(lightPos));
-    glUniform3fv(terrainViewPosLoc, 1, glm::value_ptr(viewPos));
     glUniform3fv(terrainLightColorLoc, 1, glm::value_ptr(lightColor));
 
     // Sword scattering
@@ -129,22 +152,39 @@ int main() {
     GLuint swordProjLoc = glGetUniformLocation(swordShaderProgram, "projection");
 
     glUseProgram(swordShaderProgram);
-    glUniformMatrix4fv(swordViewLoc, 1, GL_FALSE, glm::value_ptr(view));
     glUniformMatrix4fv(swordProjLoc, 1, GL_FALSE, glm::value_ptr(projection));
+
+    float deltaTime = 0.0f;
+    float lastFrame = 0.0f;
 
     // Main rendering loop
     while (!glfwWindowShouldClose(window)) {
+        float currentFrame = glfwGetTime();
+        deltaTime = currentFrame - lastFrame;
+        lastFrame = currentFrame;
+
+        // Process input
+        camera.ProcessKeyboard(window, deltaTime);
+
+        // Update camera position based on terrain height
+        float terrainHeight = terrain.getHeightAt(camera.Position.x, camera.Position.z);
+        camera.UpdateCameraPosition(terrainHeight);
+
         // Clear the screen
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
         // Render the terrain
         glUseProgram(terrainShaderProgram);
+        glm::mat4 view = camera.GetViewMatrix();
+        glUniformMatrix4fv(terrainViewLoc, 1, GL_FALSE, glm::value_ptr(view));
         glUniformMatrix4fv(terrainModelLoc, 1, GL_FALSE, glm::value_ptr(model));
+        glUniform3fv(terrainViewPosLoc, 1, glm::value_ptr(camera.Position));
         glBindVertexArray(terrainVAO);
         glDrawElements(GL_TRIANGLES, indices.size(), GL_UNSIGNED_INT, 0);
 
         // Render the swords
         glUseProgram(swordShaderProgram);
+        glUniformMatrix4fv(swordViewLoc, 1, GL_FALSE, glm::value_ptr(view));
         sword.renderSwords(swordTransforms1, swordTransforms2, swordShaderProgram);
 
         // Swap buffers and poll IO events

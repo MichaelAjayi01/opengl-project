@@ -20,12 +20,14 @@ glm::vec3 Terrain::getBiomeColor(float noiseValue) {
 }
 
 void Terrain::generateTerrain(std::vector<Vertex>& vertices, std::vector<unsigned int>& indices) {
+    this->vertices.clear(); // Clear any existing vertices
     for (int z = 0; z <= gridSize; ++z) {
         for (int x = 0; x <= gridSize; ++x) {
             float noiseValue = noise.GetNoise((float)x, (float)z);
             float height = noiseValue * scale;
 
             vertices.push_back({ glm::vec3((float)x, height, (float)z), getBiomeColor(noiseValue), glm::vec3(0.0f, 1.0f, 0.0f) });
+            this->vertices.push_back(vertices.back()); // Store vertex for height lookup
         }
     }
 
@@ -61,4 +63,17 @@ void Terrain::generateTerrain(std::vector<Vertex>& vertices, std::vector<unsigne
     for (auto& vertex : vertices) {
         vertex.normal = glm::normalize(vertex.normal);
     }
+}
+
+float Terrain::getHeightAt(float x, float z) const {
+    // Find the closest vertex to the given (x, z) position
+    int ix = static_cast<int>(x);
+    int iz = static_cast<int>(z);
+
+    if (ix < 0 || ix >= gridSize || iz < 0 || iz >= gridSize) {
+        return 0.0f; // Return 0 if out of bounds
+    }
+
+    int index = iz * (gridSize + 1) + ix;
+    return vertices[index].position.y;
 }
