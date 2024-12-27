@@ -183,6 +183,10 @@ int main() {
         // Process input
         camera.ProcessKeyboard(window, deltaTime);
 
+        // Constrain camera position to the terrain bounds
+        camera.Position.x = glm::clamp(camera.Position.x, 0.0f, static_cast<float>(gridSize));
+        camera.Position.z = glm::clamp(camera.Position.z, 0.0f, static_cast<float>(gridSize));
+
         // Update camera position based on terrain height
         float terrainHeight = terrain.getHeightAt(camera.Position.x, camera.Position.z);
         camera.Position.y = glm::mix(camera.Position.y, terrainHeight + 2.0f, 0.1f); // Smoothly interpolate to the target height
