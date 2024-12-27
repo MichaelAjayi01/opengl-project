@@ -1,5 +1,6 @@
 #include <iostream>
 #include <vector>
+#include <random>
 #include <glew.h>
 #include <glfw3.h>
 #include <FastNoiseLite.h>
@@ -14,6 +15,14 @@
 
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb_image.h>
+
+// Function to generate a random float between min and max
+float randomFloat(float min, float max) {
+    std::random_device rd;
+    std::mt19937 gen(rd());
+    std::uniform_real_distribution<> dis(min, max);
+    return dis(gen);
+}
 
 // Create a Camera object
 Camera camera(glm::vec3(50.0f, 50.0f, 150.0f), glm::vec3(0.0f, 1.0f, 0.0f), -90.0f, 0.0f);
@@ -153,6 +162,14 @@ int main() {
 
     glUseProgram(swordShaderProgram);
     glUniformMatrix4fv(swordProjLoc, 1, GL_FALSE, glm::value_ptr(projection));
+
+    // Generate random starting position for the camera
+    float startX = randomFloat(0.0f, static_cast<float>(gridSize));
+    float startZ = randomFloat(0.0f, static_cast<float>(gridSize));
+    float startY = terrain.getHeightAt(startX, startZ) + 2.0f; // Add an offset to the height
+
+    // Update camera position
+    camera.Position = glm::vec3(startX, startY, startZ);
 
     float deltaTime = 0.0f;
     float lastFrame = 0.0f;
