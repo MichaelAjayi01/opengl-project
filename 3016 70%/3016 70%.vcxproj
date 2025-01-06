@@ -160,6 +160,8 @@
     <Image Include="models\Swords\texture\Texture_MAp_sword.png" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="key_fragment_shader.glsl" />
+    <None Include="key_vertex_shader.glsl" />
     <None Include="shaders\sword_fragment_shader.glsl" />
     <None Include="shaders\terrain_fragment_shader.glsl" />
     <None Include="shaders\terrain_vertex_shader.glsl" />

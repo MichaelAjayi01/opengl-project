@@ -75,5 +75,11 @@
     <None Include="shaders\sword_vertex_shader.glsl">
       <Filter>Shaders</Filter>
     </None>
+    <None Include="key_fragment_shader.glsl">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="key_vertex_shader.glsl">
+      <Filter>Shaders</Filter>
+    </None>
   </ItemGroup>
 </Project>

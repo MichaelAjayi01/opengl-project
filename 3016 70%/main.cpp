@@ -101,6 +101,7 @@ int main() {
     };
     GLuint keyShaderProgram = LoadShaders(keyShaders);
 
+
     // Terrain generation
     FastNoiseLite noise;
     noise.SetNoiseType(FastNoiseLite::NoiseType_OpenSimplex2);
@@ -250,6 +251,13 @@ int main() {
     }
 
     // Clean up and exit
+    glDeleteVertexArrays(1, &terrainVAO);
+    glDeleteBuffers(1, &terrainVBO);
+    glDeleteBuffers(1, &terrainEBO);
+    glDeleteProgram(terrainShaderProgram);
+    glDeleteProgram(swordShaderProgram);
+    glDeleteProgram(keyShaderProgram);
+
     glfwTerminate();
     return 0;
 }
