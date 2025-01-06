@@ -10,6 +10,7 @@
 #include "Vertex.h"
 #include "Terrain.h"
 #include "Sword.h"
+#include "Key.h"
 #include "Camera.h"
 #include "shaders/LoadShaders.h"
 
@@ -92,6 +93,14 @@ int main() {
     };
     GLuint swordShaderProgram = LoadShaders(swordShaders);
 
+    // Shader setup for keys
+    ShaderInfo keyShaders[] = {
+        { GL_VERTEX_SHADER, "shaders/key_vertex_shader.glsl" },
+        { GL_FRAGMENT_SHADER, "shaders/key_fragment_shader.glsl" },
+        { GL_NONE, NULL }
+    };
+    GLuint keyShaderProgram = LoadShaders(keyShaders);
+
     // Terrain generation
     FastNoiseLite noise;
     noise.SetNoiseType(FastNoiseLite::NoiseType_OpenSimplex2);
@@ -163,6 +172,28 @@ int main() {
     glUseProgram(swordShaderProgram);
     glUniformMatrix4fv(swordProjLoc, 1, GL_FALSE, glm::value_ptr(projection));
 
+    // Key scattering
+    Key key("models/Key/FBX/rust_key.FBX");
+
+    std::vector<glm::mat4> keyTransforms;
+    float keyScaleFactor = 0.1f; // Example scale factor for keys
+    for (int i = 0; i < 10; ++i) {
+        glm::mat4 transform = glm::mat4(1.0f);
+        float x = randomFloat(0.0f, static_cast<float>(gridSize));
+        float z = randomFloat(0.0f, static_cast<float>(gridSize));
+        float y = terrain.getHeightAt(x, z);
+        transform = glm::translate(transform, glm::vec3(x, y, z));
+        transform = glm::scale(transform, glm::vec3(keyScaleFactor));
+        key.addKeyTransform(transform);
+		std::cout << "Key " << i << " position: " << x << ", " << y << ", " << z << std::endl;
+    }
+
+    GLuint keyViewLoc = glGetUniformLocation(keyShaderProgram, "view");
+    GLuint keyProjLoc = glGetUniformLocation(keyShaderProgram, "projection");
+
+    glUseProgram(keyShaderProgram);
+    glUniformMatrix4fv(keyProjLoc, 1, GL_FALSE, glm::value_ptr(projection));
+
     // Generate random starting position for the camera
     float startX = randomFloat(0.0f, static_cast<float>(gridSize));
     float startZ = randomFloat(0.0f, static_cast<float>(gridSize));
@@ -207,6 +238,11 @@ int main() {
         glUseProgram(swordShaderProgram);
         glUniformMatrix4fv(swordViewLoc, 1, GL_FALSE, glm::value_ptr(view));
         sword.renderSwords(swordTransforms1, swordTransforms2, swordShaderProgram);
+
+        // Render the keys
+        glUseProgram(keyShaderProgram);
+        glUniformMatrix4fv(keyViewLoc, 1, GL_FALSE, glm::value_ptr(view));
+        key.render(view, projection, keyShaderProgram);
 
         // Swap buffers and poll IO events
         glfwSwapBuffers(window);

@@ -142,6 +142,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="Camera.cpp" />
+    <ClCompile Include="Key.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="shaders\LoadShaders.cpp" />
     <ClCompile Include="sword.cpp" />
@@ -149,6 +150,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Camera.h" />
+    <ClInclude Include="Key.h" />
     <ClInclude Include="shaders\LoadShaders.h" />
     <ClInclude Include="sword.h" />
     <ClInclude Include="terrain.h" />
