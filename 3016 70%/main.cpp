@@ -177,16 +177,17 @@ int main() {
     Key key("models/Key/FBX/rust_key.FBX");
 
     std::vector<glm::mat4> keyTransforms;
-    float keyScaleFactor = 0.1f; // Example scale factor for keys
+    float keyScaleFactor = 0.25f;
+    float keyHeightOffset = 1.0f;
     for (int i = 0; i < 10; ++i) {
-        glm::mat4 transform = glm::mat4(1.0f);
+        glm::mat4 transform = glm::mat4(25);
         float x = randomFloat(0.0f, static_cast<float>(gridSize));
         float z = randomFloat(0.0f, static_cast<float>(gridSize));
-        float y = terrain.getHeightAt(x, z);
+        float y = terrain.getHeightAt(x, z) + keyHeightOffset;
         transform = glm::translate(transform, glm::vec3(x, y, z));
+        transform = glm::rotate(transform, glm::radians(90.0f), glm::vec3(1.0f, 0.0f, 0.0f));
         transform = glm::scale(transform, glm::vec3(keyScaleFactor));
         key.addKeyTransform(transform);
-		std::cout << "Key " << i << " position: " << x << ", " << y << ", " << z << std::endl;
     }
 
     GLuint keyViewLoc = glGetUniformLocation(keyShaderProgram, "view");
