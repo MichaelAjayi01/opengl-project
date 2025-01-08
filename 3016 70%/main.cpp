@@ -47,6 +47,49 @@ void mouse_callback(GLFWwindow* window, double xpos, double ypos) {
     camera.ProcessMouseMovement(xoffset, yoffset);
 }
 
+GLuint loadTexture(const char* path) {
+    GLuint textureID;
+    glGenTextures(1, &textureID);
+
+    int width, height, nrComponents;
+    unsigned char* data = stbi_load(path, &width, &height, &nrComponents, 0);
+    if (data) {
+        GLenum format;
+        if (nrComponents == 1)
+            format = GL_RED;
+        else if (nrComponents == 3)
+            format = GL_RGB;
+        else if (nrComponents == 4)
+            format = GL_RGBA;
+
+        glBindTexture(GL_TEXTURE_2D, textureID);
+        glTexImage2D(GL_TEXTURE_2D, 0, format, width, height, 0, format, GL_UNSIGNED_BYTE, data);
+        glGenerateMipmap(GL_TEXTURE_2D);
+
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+        stbi_image_free(data);
+    }
+    else {
+        std::cerr << "Failed to load texture: " << path << std::endl;
+        stbi_image_free(data);
+    }
+
+    return textureID;
+}
+
+// Function to calculate delta time
+float calculateDeltaTime() {
+    static float lastFrameTime = 0.0f;
+    float currentFrameTime = static_cast<float>(glfwGetTime());
+    float deltaTime = currentFrameTime - lastFrameTime;
+    lastFrameTime = currentFrameTime;
+    return deltaTime;
+}
+
 int main() {
     // GLFW and GLEW Initialization
     if (!glfwInit()) {
@@ -101,6 +144,75 @@ int main() {
     };
     GLuint keyShaderProgram = LoadShaders(keyShaders);
 
+    // Shader setup for quad (signature)
+    const char* quadVertexShaderSource = R"(
+    #version 460 core
+    layout (location = 0) in vec2 aPos;
+    layout (location = 1) in vec2 aTexCoords;
+
+    out vec2 TexCoords;
+
+    void main() {
+        TexCoords = aTexCoords;
+        gl_Position = vec4(aPos, 0.0, 1.0);
+    }
+    )";
+
+    const char* quadFragmentShaderSource = R"(
+    #version 460 core
+    out vec4 FragColor;
+
+    in vec2 TexCoords;
+
+    uniform sampler2D texture1;
+
+    void main() {
+        FragColor = texture(texture1, TexCoords);
+    }
+    )";
+
+    GLuint quadVertexShader = glCreateShader(GL_VERTEX_SHADER);
+    glShaderSource(quadVertexShader, 1, &quadVertexShaderSource, NULL);
+    glCompileShader(quadVertexShader);
+
+    GLuint quadFragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
+    glShaderSource(quadFragmentShader, 1, &quadFragmentShaderSource, NULL);
+    glCompileShader(quadFragmentShader);
+
+    GLuint quadShaderProgram = glCreateProgram();
+    glAttachShader(quadShaderProgram, quadVertexShader);
+    glAttachShader(quadShaderProgram, quadFragmentShader);
+    glLinkProgram(quadShaderProgram);
+
+    glDeleteShader(quadVertexShader);
+    glDeleteShader(quadFragmentShader);
+
+    // Create a quad
+    float quadVertices[] = {
+        // positions   // texCoords
+        -0.9f,  0.9f,  0.0f, 0.0f,
+        -0.9f,  0.7f,  0.0f, 1.0f,
+        -0.7f,  0.7f,  1.0f, 1.0f,
+
+        -0.9f,  0.9f,  0.0f, 0.0f,
+        -0.7f,  0.7f,  1.0f, 1.0f,
+        -0.7f,  0.9f,  1.0f, 0.0f
+    };
+
+
+    GLuint quadVAO, quadVBO;
+    glGenVertexArrays(1, &quadVAO);
+    glGenBuffers(1, &quadVBO);
+    glBindVertexArray(quadVAO);
+    glBindBuffer(GL_ARRAY_BUFFER, quadVBO);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(quadVertices), quadVertices, GL_STATIC_DRAW);
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)0);
+    glEnableVertexAttribArray(1);
+    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)(2 * sizeof(float)));
+    glBindVertexArray(0);
+
+    GLuint signatureTexture = loadTexture("Signature/signature.jpg");
 
     // Terrain generation
     FastNoiseLite noise;
@@ -180,7 +292,7 @@ int main() {
     float keyScaleFactor = 0.25f;
     float keyHeightOffset = 1.0f;
     for (int i = 0; i < 10; ++i) {
-        glm::mat4 transform = glm::mat4(25);
+        glm::mat4 transform = glm::mat4(1.0f);
         float x = randomFloat(0.0f, static_cast<float>(gridSize));
         float z = randomFloat(0.0f, static_cast<float>(gridSize));
         float y = terrain.getHeightAt(x, z) + keyHeightOffset;
@@ -246,6 +358,14 @@ int main() {
         glUniformMatrix4fv(keyViewLoc, 1, GL_FALSE, glm::value_ptr(view));
         key.render(view, projection, keyShaderProgram);
 
+        // Render the signature quad
+        glUseProgram(quadShaderProgram);
+        glBindVertexArray(quadVAO);
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, signatureTexture);
+        glDrawArrays(GL_TRIANGLES, 0, 6);
+        glBindVertexArray(0);
+
         // Swap buffers and poll IO events
         glfwSwapBuffers(window);
         glfwPollEvents();
@@ -261,4 +381,4 @@ int main() {
 
     glfwTerminate();
     return 0;
-}
+    }
